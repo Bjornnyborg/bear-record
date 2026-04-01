@@ -171,8 +171,15 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
     return
   }
   const hasWebcam = !!webcamDeviceId
-  const hudWidth = 220
-  const hudHeight = hasWebcam ? 230 : 64
+  
+  // Calculate webcam size for HUD (25% of min dimension - half of MP4 size for less intrusion)
+  let webcamSize = 140 // default
+  if (captureArea) {
+    webcamSize = Math.round(Math.min(captureArea.width, captureArea.height) * 0.25)
+  }
+  
+  const hudWidth = hasWebcam ? webcamSize + 20 : 220
+  const hudHeight = hasWebcam ? webcamSize + 70 : 64 // extra space for controls at top
   hudWindow = new BrowserWindow({
     width: hudWidth,
     height: hudHeight,
@@ -191,7 +198,9 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
   hudWindow.setAlwaysOnTop(true, 'screen-saver')
   // Exclude from screen capture so it's visible to user but not in recording
   hudWindow.setContentProtection(true)
-  const params = webcamDeviceId ? `?webcam=${encodeURIComponent(webcamDeviceId)}` : ''
+  const params = webcamDeviceId 
+    ? `?webcam=${encodeURIComponent(webcamDeviceId)}&size=${webcamSize}` 
+    : ''
   const url = process.env['ELECTRON_RENDERER_URL']
   if (url) {
     hudWindow.loadURL(url + '/hud.html' + params)
@@ -204,11 +213,11 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
   // Without webcam: top-center of capture area
   if (captureArea) {
     if (hasWebcam) {
-      // Position at bottom-left with margin matching the MP4 overlay (12% of min dimension)
+      // Position so webcam circle is at bottom-left with 3% margin (matching ffmpeg)
       const margin = Math.round(Math.min(captureArea.width, captureArea.height) * 0.03)
       hudWindow.setPosition(
-        captureArea.x + margin,
-        captureArea.y + captureArea.height - hudHeight - margin
+        captureArea.x + margin - 10, // -10 for HUD padding
+        captureArea.y + captureArea.height - webcamSize - margin - 60 // -60 for controls bar
       )
     } else {
       hudWindow.setPosition(
@@ -220,7 +229,7 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
     const { workAreaSize } = require('electron').screen.getPrimaryDisplay()
     if (hasWebcam) {
       const margin = Math.round(Math.min(workAreaSize.width, workAreaSize.height) * 0.03)
-      hudWindow.setPosition(margin, workAreaSize.height - hudHeight - margin)
+      hudWindow.setPosition(margin - 10, workAreaSize.height - webcamSize - margin - 60)
     } else {
       hudWindow.setPosition(
         Math.round((workAreaSize.width - hudWidth) / 2),

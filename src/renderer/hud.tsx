@@ -12,9 +12,9 @@ function Hud() {
   const [paused, setPaused] = useState(false);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
 
-  const webcamDeviceId = new URLSearchParams(window.location.search).get(
-    "webcam",
-  );
+  const params = new URLSearchParams(window.location.search);
+  const webcamDeviceId = params.get("webcam");
+  const webcamSize = parseInt(params.get("size") || "280", 10);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -154,8 +154,8 @@ function Hud() {
       {webcamDeviceId && (
         <div
           style={{
-            width: 140,
-            height: 140,
+            width: webcamSize,
+            height: webcamSize,
             borderRadius: "50%",
             overflow: "hidden",
             border: "3px solid rgba(255,255,255,0.25)",

@@ -1,6 +1,7 @@
-import React from 'react'
-import { FolderOpen, FileVideo, RotateCcw } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { FolderOpen, FileVideo, RotateCcw, Upload, CheckCircle, XCircle, Copy, Check, Loader } from 'lucide-react'
 import type { TranscodeResult } from '../../shared/types'
+import { useSettingsStore } from '../store/settingsStore'
 
 interface Props {
   result: TranscodeResult
@@ -21,9 +22,60 @@ function formatDuration(ms: number): string {
   return `${s}s`
 }
 
+type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
+
 export default function DonePage({ result, onRecordAgain }: Props) {
   const fileName = result.outputPath.split(/[\\/]/).pop() ?? 'recording.mp4'
   const folder = result.outputPath.split(/[\\/]/).slice(0, -1).join('/')
+  const ftp = useSettingsStore((s) => s.ftp)
+
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (ftp.enabled && ftp.host && ftp.username) {
+      startUpload()
+    }
+  }, [])
+
+  const startUpload = async () => {
+    setUploadStatus('uploading')
+    setUploadProgress(0)
+    setUploadError(null)
+
+    // Listen for progress updates
+    const removeListener = window.electronAPI.onFtpUploadProgress((progress) => {
+      setUploadProgress(Math.round(progress.percent))
+    })
+
+    try {
+      const uploadResult = await window.electronAPI.ftpUpload(result.outputPath, ftp)
+
+      if (uploadResult.success && uploadResult.url) {
+        setUploadStatus('success')
+        setUploadUrl(uploadResult.url)
+      } else {
+        setUploadStatus('error')
+        setUploadError(uploadResult.error || 'Upload failed')
+      }
+    } catch (err) {
+      setUploadStatus('error')
+      setUploadError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      removeListener()
+    }
+  }
+
+  const copyUrl = () => {
+    if (uploadUrl) {
+      window.electronAPI.copyToClipboard(uploadUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   return (
     <div className="h-full flex flex-col items-center justify-center gap-6 px-8">
@@ -46,6 +98,63 @@ export default function DonePage({ result, onRecordAgain }: Props) {
           <span>{formatDuration(result.durationMs)}</span>
         </div>
       </div>
+
+      {/* FTP Upload Status */}
+      {ftp.enabled && (
+        <div className="w-full max-w-xs">
+          {uploadStatus === 'uploading' && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-sm text-bear-muted">
+                <Loader size={14} className="animate-spin" />
+                <span>Uploading to FTP... {uploadProgress}%</span>
+              </div>
+              <div className="w-full h-2 bg-bear-surface rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-bear-accent transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {uploadStatus === 'success' && uploadUrl && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-sm text-green-500">
+                <CheckCircle size={14} />
+                <span>Uploaded successfully!</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={uploadUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 rounded-lg border border-bear-border bg-bear-surface text-xs text-bear-text truncate"
+                />
+                <button
+                  onClick={copyUrl}
+                  className="px-3 py-2 rounded-lg border border-bear-border text-bear-muted hover:text-bear-text hover:border-bear-muted transition-colors"
+                >
+                  {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                </button>
+              </div>
+            </div>
+          )}
+          {uploadStatus === 'error' && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-sm text-red-400">
+                <XCircle size={14} />
+                <span>Upload failed</span>
+              </div>
+              <p className="text-xs text-bear-muted">{uploadError}</p>
+              <button
+                onClick={startUpload}
+                className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-bear-border text-bear-muted hover:text-bear-text hover:border-bear-muted text-sm transition-colors"
+              >
+                <Upload size={14} /> Retry upload
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-col gap-2 w-full max-w-xs">

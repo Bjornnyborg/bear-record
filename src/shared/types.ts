@@ -18,7 +18,10 @@ export const IPC = {
   HUD_CLOSE: 'hud:close',
   HUD_STOP: 'hud:stop',
   HUD_PAUSE: 'hud:pause',
-  APP_READY: 'app:ready'
+  APP_READY: 'app:ready',
+  FTP_UPLOAD: 'ftp:upload',
+  FTP_UPLOAD_PROGRESS: 'ftp:uploadProgress',
+  FTP_TEST: 'ftp:test'
 } as const
 
 export interface SourceInfo {
@@ -77,22 +80,46 @@ export interface TranscodeResult {
   thumbnailDataUrl: string
 }
 
+export interface FtpSettings {
+  enabled: boolean
+  host: string
+  port: number
+  username: string
+  password: string
+  remotePath: string  // e.g., /uploads/
+  urlTemplate: string // e.g., https://example.com/uploads/{filename}
+}
+
 export interface AppSettings {
   quality: QualityPreset
   outputFolder: string
+  filenamePrefix: string
   micEnabled: boolean
   micDeviceId: string | null
   systemEnabled: boolean
   webcamEnabled: boolean
   webcamDeviceId: string | null
+  ftp: FtpSettings
+}
+
+export const DEFAULT_FTP_SETTINGS: FtpSettings = {
+  enabled: false,
+  host: '',
+  port: 21,
+  username: '',
+  password: '',
+  remotePath: '/',
+  urlTemplate: ''
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   quality: 'high',
   outputFolder: '',
+  filenamePrefix: 'BearRecord',
   micEnabled: true,
   micDeviceId: null,
   systemEnabled: true,
   webcamEnabled: false,
-  webcamDeviceId: null
+  webcamDeviceId: null,
+  ftp: DEFAULT_FTP_SETTINGS
 }

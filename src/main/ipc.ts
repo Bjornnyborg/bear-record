@@ -1,10 +1,11 @@
-import { ipcMain, BrowserWindow, dialog, shell, app } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell, app, clipboard } from 'electron'
 import Store from 'electron-store'
 import { IPC, DEFAULT_SETTINGS } from '../shared/types'
-import type { AppSettings, TranscodeRequest } from '../shared/types'
+import type { AppSettings, TranscodeRequest, FtpSettings } from '../shared/types'
 import { getCaptureSources } from './sources'
 import { startSession, writeChunk, endSession, getOutputPath, startWebcamSession, writeWebcamChunk, endWebcamSession } from './temp'
 import { transcode } from './ffmpeg'
+import { uploadToFtp, testFtpConnection } from './ftp'
 import { createHudWindow, closeHudWindow, createRegionWindow, createBorderWindow, createFullscreenBorderWindow, closeBorderWindow, updateBorderWindow, registerRecordingShortcuts, unregisterRecordingShortcuts } from './main'
 import { startWindowTracking, stopWindowTracking, focusWindow } from './windowTracker'
 import { join } from 'path'
@@ -73,14 +74,29 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     store.set('settings', { ...current, ...patch })
   })
 
+  // FTP Upload
+  ipcMain.handle(IPC.FTP_UPLOAD, async (event, filePath: string, ftpSettings: FtpSettings) => {
+    const result = await uploadToFtp(filePath, ftpSettings, (progress) => {
+      event.sender.send(IPC.FTP_UPLOAD_PROGRESS, progress)
+    })
+    return result
+  })
+  
+  ipcMain.handle(IPC.FTP_TEST, async (_e, ftpSettings: FtpSettings) => {
+    return testFtpConnection(ftpSettings)
+  })
+
   // Output path helper
-  ipcMain.handle('recording:outputPath', (_e, outputFolder: string) => {
-    return getOutputPath(outputFolder)
+  ipcMain.handle('recording:outputPath', (_e, outputFolder: string, filenamePrefix?: string) => {
+    return getOutputPath(outputFolder, filenamePrefix)
   })
 
   // Shell
   ipcMain.handle(IPC.SHELL_OPEN_FILE, (_e, path: string) => shell.openPath(path))
   ipcMain.handle(IPC.SHELL_OPEN_FOLDER, (_e, path: string) => shell.openPath(path))
+
+  // Clipboard
+  ipcMain.handle('clipboard:write', (_e, text: string) => clipboard.writeText(text))
   ipcMain.handle(IPC.SHOW_FOLDER_PICKER, async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory', 'createDirectory']

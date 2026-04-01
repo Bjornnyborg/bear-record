@@ -60,17 +60,17 @@ export async function transcode(
 
     if (hasWebcam) {
       // Step 2: scale webcam to PiP size, create circular mask, overlay bottom-left
-      // PiP diameter = 25% of min(W,H). Use scale2ref to size webcam relative to screen.
+      // PiP diameter = 50% of min(W,H). Use scale2ref to size webcam relative to screen.
       // Crop webcam to square first (center crop) so it fills the circle proportionally
       filterParts.push(
         // Center-crop webcam to square (aspect-fill behavior)
         `[1:v]crop=w='min(iw\\,ih)':h='min(iw\\,ih)'[wcsq]`,
         // Scale the square webcam to PiP size using scale2ref
-        `[wcsq]${screenLabel}scale2ref=w='round(min(main_w\\,main_h)*0.25)':h='round(min(main_w\\,main_h)*0.25)'[wcscaled][screenref]`,
+        `[wcsq]${screenLabel}scale2ref=w='round(min(main_w\\,main_h)*0.50)':h='round(min(main_w\\,main_h)*0.50)'[wcscaled][screenref]`,
         // Create circular mask using geq - lte() returns 0/1, multiply by 255 for alpha
         `[wcscaled]format=yuva420p,geq=lum='p(X,Y)':a='255*lte(pow(X-W/2\\,2)+pow(Y-H/2\\,2)\\,pow(W/2\\,2))'[wccirc]`,
-        // Overlay: position = margin from bottom-left (margin = 12% of diameter)
-        `[screenref][wccirc]overlay=x='round(min(W\\,H)*0.25*0.12)':y='H-round(min(W\\,H)*0.25*0.12)-h'[out]`
+        // Overlay: position = small margin from bottom-left (3% of min dimension)
+        `[screenref][wccirc]overlay=x='round(min(W\\,H)*0.03)':y='H-round(min(W\\,H)*0.03)-h'[out]`
       )
     }
 

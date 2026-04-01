@@ -142,12 +142,13 @@ export function cleanupWebcamSession(): void {
   webcamEndReject = null
 }
 
-export function getOutputPath(outputFolder: string): string {
+export function getOutputPath(outputFolder: string, filenamePrefix: string = 'BearRecord'): string {
   mkdirSync(outputFolder, { recursive: true })
   const ts = new Date()
     .toISOString()
     .replace(/[:.]/g, '-')
     .replace('T', '_')
     .slice(0, 19)
-  return join(outputFolder, `BearRecord-${ts}.mp4`)
+  const prefix = filenamePrefix.trim() || 'BearRecord'
+  return join(outputFolder, `${prefix}-${ts}.mp4`)
 }

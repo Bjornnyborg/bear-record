@@ -37,6 +37,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFolder: (path: string) => ipcRenderer.invoke(IPC.SHELL_OPEN_FOLDER, path),
   showFolderPicker: () => ipcRenderer.invoke(IPC.SHOW_FOLDER_PICKER),
 
+  // FTP Upload
+  ftpUpload: (filePath: string, ftpSettings: import('../shared/types').FtpSettings) =>
+    ipcRenderer.invoke(IPC.FTP_UPLOAD, filePath, ftpSettings),
+  onFtpUploadProgress: (cb: (progress: { bytesTransferred: number; totalBytes: number; percent: number }) => void) => {
+    const handler = (_: unknown, progress: any) => cb(progress)
+    ipcRenderer.on(IPC.FTP_UPLOAD_PROGRESS, handler)
+    return () => ipcRenderer.removeListener(IPC.FTP_UPLOAD_PROGRESS, handler)
+  },
+  ftpTest: (ftpSettings: import('../shared/types').FtpSettings) =>
+    ipcRenderer.invoke(IPC.FTP_TEST, ftpSettings),
+
   // HUD control
   openHud: () => ipcRenderer.invoke(IPC.HUD_OPEN),
   closeHud: () => ipcRenderer.invoke(IPC.HUD_CLOSE),
@@ -63,5 +74,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showWindow: () => ipcRenderer.invoke('window:show'),
 
   // Platform
-  platform: process.platform
+  platform: process.platform,
+
+  // Clipboard
+  copyToClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', text)
 })

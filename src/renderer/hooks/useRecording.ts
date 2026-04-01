@@ -252,7 +252,7 @@ export function useRecording() {
     try {
       const inputPath = await window.electronAPI.stopRecording()
       const webcamPath = hasWebcam ? await window.electronAPI.stopWebcamSession() : null
-      const outputPath = await window.electronAPI.invoke('recording:outputPath', settings.outputFolder)
+      const outputPath = await window.electronAPI.invoke('recording:outputPath', settings.outputFolder, settings.filenamePrefix)
 
       const result = await window.electronAPI.transcode({
         inputPath,

@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react'
-import { Mic, MicOff, Volume2, VolumeX, Camera, Folder, Video } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Mic, MicOff, Volume2, VolumeX, Camera, Folder, Video, Upload, CheckCircle, XCircle, Loader } from 'lucide-react'
 import SourcePicker from '../components/SourcePicker'
 import WebcamPreview from '../components/WebcamPreview'
 import AudioMeter from '../components/AudioMeter'
@@ -137,7 +137,93 @@ export default function SettingsPage({ onRecord }: Props) {
                 {store.outputFolder || '~/Videos/BearRecord'}
               </button>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-bear-muted w-16">Filename</span>
+              <input
+                type="text"
+                value={store.filenamePrefix}
+                onChange={(e) => store.setFilenamePrefix(e.target.value)}
+                placeholder="BearRecord"
+                className="flex-1 px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+              />
+            </div>
           </div>
+        </section>
+
+        <Divider />
+
+        {/* FTP Upload */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <SectionLabel icon={<Upload size={16} />} title="FTP Upload" />
+            <Toggle enabled={store.ftp.enabled} onToggle={() => store.setFtp({ enabled: !store.ftp.enabled })} />
+          </div>
+          
+          {store.ftp.enabled && (
+            <div className="space-y-3 pl-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">Host</span>
+                <input
+                  type="text"
+                  value={store.ftp.host}
+                  onChange={(e) => store.setFtp({ host: e.target.value })}
+                  placeholder="ftp.example.com"
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">Port</span>
+                <input
+                  type="number"
+                  value={store.ftp.port}
+                  onChange={(e) => store.setFtp({ port: parseInt(e.target.value) || 21 })}
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text focus:border-bear-muted focus:outline-none w-24"
+                />
+              </div>
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">Username</span>
+                <input
+                  type="text"
+                  value={store.ftp.username}
+                  onChange={(e) => store.setFtp({ username: e.target.value })}
+                  placeholder="username"
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">Password</span>
+                <input
+                  type="password"
+                  value={store.ftp.password}
+                  onChange={(e) => store.setFtp({ password: e.target.value })}
+                  placeholder="••••••••"
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">Remote Path</span>
+                <input
+                  type="text"
+                  value={store.ftp.remotePath}
+                  onChange={(e) => store.setFtp({ remotePath: e.target.value })}
+                  placeholder="/uploads"
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-[80px,1fr] gap-2 items-center">
+                <span className="text-sm text-bear-muted">URL Template</span>
+                <input
+                  type="text"
+                  value={store.ftp.urlTemplate}
+                  onChange={(e) => store.setFtp({ urlTemplate: e.target.value })}
+                  placeholder="https://example.com/videos/{filename}"
+                  className="px-3 py-1.5 rounded-lg border border-bear-border bg-transparent text-sm text-bear-text placeholder:text-bear-muted/50 focus:border-bear-muted focus:outline-none"
+                />
+              </div>
+              <div className="text-xs text-bear-muted">Use {'{filename}'} as placeholder in URL template</div>
+              <FtpTestButton />
+            </div>
+          )}
         </section>
       </div>
 
@@ -204,5 +290,60 @@ function Select({ value, onChange, options, placeholder, disabled }: SelectProps
         <option key={o.value} value={o.value}>{o.label}</option>
       ))}
     </select>
+  )
+}
+
+function FtpTestButton() {
+  const [status, setStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+  const store = useSettingsStore()
+
+  const testConnection = async () => {
+    setStatus('testing')
+    setMessage('')
+    try {
+      const result = await window.electronAPI.ftpTest(store.ftp)
+      if (result.success) {
+        setStatus('success')
+        setMessage('Connection successful!')
+      } else {
+        setStatus('error')
+        setMessage(result.error || 'Connection failed')
+      }
+    } catch (err) {
+      setStatus('error')
+      setMessage(err instanceof Error ? err.message : 'Connection failed')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={testConnection}
+        disabled={status === 'testing' || !store.ftp.host || !store.ftp.username}
+        className="px-4 py-1.5 rounded-lg text-sm font-medium bg-bear-surface border border-bear-border text-bear-text hover:border-bear-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+      >
+        {status === 'testing' ? (
+          <>
+            <Loader size={14} className="animate-spin" />
+            Testing...
+          </>
+        ) : (
+          'Test Connection'
+        )}
+      </button>
+      {status === 'success' && (
+        <span className="text-green-500 flex items-center gap-1 text-sm">
+          <CheckCircle size={14} />
+          {message}
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-red-400 flex items-center gap-1 text-sm">
+          <XCircle size={14} />
+          {message}
+        </span>
+      )}
+    </div>
   )
 }

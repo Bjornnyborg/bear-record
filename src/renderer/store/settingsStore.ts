@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { CaptureTarget, QualityPreset, AudioSettings, WebcamSettings } from '../../shared/types'
+import type { CaptureTarget, QualityPreset, AudioSettings, WebcamSettings, FtpSettings } from '../../shared/types'
+import { DEFAULT_FTP_SETTINGS } from '../../shared/types'
 
 interface SettingsState {
   captureTarget: CaptureTarget | null
@@ -7,6 +8,8 @@ interface SettingsState {
   webcam: WebcamSettings
   quality: QualityPreset
   outputFolder: string
+  filenamePrefix: string
+  ftp: FtpSettings
   loaded: boolean
 
   setCaptureTarget: (t: CaptureTarget | null) => void
@@ -14,6 +17,8 @@ interface SettingsState {
   setWebcam: (w: Partial<WebcamSettings>) => void
   setQuality: (q: QualityPreset) => void
   setOutputFolder: (f: string) => void
+  setFilenamePrefix: (p: string) => void
+  setFtp: (f: Partial<FtpSettings>) => void
   loadFromMain: () => Promise<void>
   saveToMain: () => void
 }
@@ -24,6 +29,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   webcam: { enabled: false, deviceId: null },
   quality: 'high',
   outputFolder: '',
+  filenamePrefix: 'BearRecord',
+  ftp: DEFAULT_FTP_SETTINGS,
   loaded: false,
 
   setCaptureTarget: (captureTarget) => {
@@ -51,6 +58,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     get().saveToMain()
   },
 
+  setFilenamePrefix: (filenamePrefix) => {
+    set({ filenamePrefix })
+    get().saveToMain()
+  },
+
+  setFtp: (patch) => {
+    set((s) => ({ ftp: { ...s.ftp, ...patch } }))
+    get().saveToMain()
+  },
+
   loadFromMain: async () => {
     const s = await window.electronAPI.getSettings()
     set({
@@ -62,12 +79,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       webcam: { enabled: s.webcamEnabled, deviceId: s.webcamDeviceId },
       quality: s.quality,
       outputFolder: s.outputFolder,
+      filenamePrefix: s.filenamePrefix || 'BearRecord',
+      ftp: s.ftp ?? DEFAULT_FTP_SETTINGS,
       loaded: true
     })
   },
 
   saveToMain: () => {
-    const { audio, webcam, quality, outputFolder } = get()
+    const { audio, webcam, quality, outputFolder, filenamePrefix, ftp } = get()
     window.electronAPI.setSettings({
       micEnabled: audio.micEnabled,
       micDeviceId: audio.micDeviceId,
@@ -75,7 +94,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       webcamEnabled: webcam.enabled,
       webcamDeviceId: webcam.deviceId,
       quality,
-      outputFolder
+      outputFolder,
+      filenamePrefix,
+      ftp
     })
   }
 }))

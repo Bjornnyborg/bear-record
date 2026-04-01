@@ -167,16 +167,12 @@ export function startWindowTracking(
   const myId = trackingId
 
   let lastBounds: string | null = null
-  let pollCount = 0
 
   const poll = async () => {
     if (myId !== trackingId) return // Stale, abort
-    pollCount++
-    console.log(`[windowTracker] Poll #${pollCount} for hwnd ${hwnd}`)
     const bounds = await getWindowBounds(hwnd)
     if (myId !== trackingId) return // Check again after async
     
-    console.log('[windowTracker] Got bounds:', bounds)
     const boundsStr = bounds ? JSON.stringify(bounds) : null
 
     // Only notify if bounds changed

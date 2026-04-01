@@ -302,6 +302,8 @@ export function useRecording() {
       setState('done')
     } catch (err) {
       console.error('[bear] Transcode failed:', err)
+      // Show an alert so the error is visible in production
+      alert(`Recording failed: ${err instanceof Error ? err.message : String(err)}`)
       setState('settings')
     } finally {
       removeProgress()

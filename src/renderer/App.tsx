@@ -10,26 +10,6 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-bear-bg overflow-hidden">
-      {/* Custom titlebar */}
-      <div className="titlebar-drag flex items-center justify-between px-4 h-10 flex-shrink-0 border-b border-bear-border">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-bear-accent" />
-          <span className="text-sm font-semibold text-bear-text tracking-wide">Bear Record</span>
-        </div>
-        <div className="titlebar-no-drag flex items-center gap-2">
-          <button
-            className="w-3 h-3 rounded-full bg-[#333] hover:bg-[#febc2e] transition-colors"
-            title="Minimize"
-            onClick={() => window.electronAPI.minimizeWindow()}
-          />
-          <button
-            className="w-3 h-3 rounded-full bg-[#333] hover:bg-[#ff5f57] transition-colors"
-            title="Close"
-            onClick={() => window.electronAPI.closeWindow()}
-          />
-        </div>
-      </div>
-
       <div className="flex-1 overflow-hidden relative">
         {state === 'settings' && <SettingsPage onRecord={startCountdown} />}
         {state === 'countdown' && <CountdownOverlay />}

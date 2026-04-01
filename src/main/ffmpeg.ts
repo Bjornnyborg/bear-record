@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, dirname, basename } from 'path'
 import { existsSync } from 'fs'
 import ffmpegStatic from 'ffmpeg-static'
 import Ffmpeg from 'fluent-ffmpeg'
@@ -10,9 +10,11 @@ function resolveFfmpegPath(): string {
   const resourcePath = join(process.resourcesPath || '', 'ffmpeg-static')
   const binName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
   const packedPath = join(resourcePath, binName)
+  console.log('[ffmpeg] Checking packed path:', packedPath, 'exists:', existsSync(packedPath))
   if (existsSync(packedPath)) return packedPath
-  if (ffmpegStatic) return ffmpegStatic
-  throw new Error('FFmpeg binary not found')
+  console.log('[ffmpeg] Checking ffmpegStatic:', ffmpegStatic, 'exists:', ffmpegStatic ? existsSync(ffmpegStatic) : false)
+  if (ffmpegStatic && existsSync(ffmpegStatic)) return ffmpegStatic
+  throw new Error(`FFmpeg binary not found. Checked: ${packedPath}, ${ffmpegStatic}`)
 }
 
 const QUALITY_FLAGS: Record<QualityPreset, { crf: number; preset: string; audioBitrate: string }> = {
@@ -30,14 +32,24 @@ export async function transcode(
   recordingDurationSec: number,
   onProgress: (pct: number) => void
 ): Promise<TranscodeResult> {
-  const ffmpegPath = resolveFfmpegPath()
+  console.log('[ffmpeg] Starting transcode:', { inputPath, webcamPath, outputPath, quality })
+  
+  let ffmpegPath: string
+  try {
+    ffmpegPath = resolveFfmpegPath()
+    console.log('[ffmpeg] Using ffmpeg at:', ffmpegPath)
+  } catch (err) {
+    console.error('[ffmpeg] Failed to resolve ffmpeg path:', err)
+    throw err
+  }
+  
   Ffmpeg.setFfmpegPath(ffmpegPath)
   const { crf, preset, audioBitrate } = QUALITY_FLAGS[quality]
   const start = Date.now()
   const thumbPath = outputPath.replace('.mp4', '-thumb.jpg')
 
   // Ensure output folder exists
-  mkdirSync(outputPath.split(/[\\/]/).slice(0, -1).join('/') || '.', { recursive: true })
+  mkdirSync(dirname(outputPath), { recursive: true })
 
   return new Promise((resolve, reject) => {
     const cmd = Ffmpeg(inputPath)
@@ -126,8 +138,8 @@ export async function transcode(
           .setFfmpegPath(ffmpegPath)
           .screenshots({
             count: 1,
-            folder: outputPath.split(/[\\/]/).slice(0, -1).join('/') || '.',
-            filename: thumbPath.split(/[\\/]/).pop() || 'thumb.jpg',
+            folder: dirname(outputPath),
+            filename: basename(thumbPath),
             size: '640x?'
           })
           .on('end', () => {
@@ -141,8 +153,12 @@ export async function transcode(
           })
           .on('error', () => resolve({ outputPath, durationMs, fileSizeBytes, thumbnailDataUrl: '' }))
       })
-      .on('stderr', (line) => console.error('[ffmpeg]', line))
-      .on('error', (err) => reject(err))
+      .on('stderr', (line) => console.log('[ffmpeg]', line))
+      .on('error', (err, stdout, stderr) => {
+        console.error('[ffmpeg] Transcode error:', err)
+        console.error('[ffmpeg] stderr:', stderr)
+        reject(new Error(`FFmpeg failed: ${err.message}. Check console for details.`))
+      })
       .run()
   })
 }

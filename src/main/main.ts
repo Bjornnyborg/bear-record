@@ -336,8 +336,7 @@ function createMainWindow() {
     height: 620,
     minWidth: 700,
     minHeight: 520,
-    frame: false,
-    titleBarStyle: 'hidden',
+    frame: true,
     backgroundColor: '#0f0f0f',
     icon: iconPath,
     webPreferences: {

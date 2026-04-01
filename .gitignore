@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-electron/
+dist-renderer/
+*.webm
+*.log
+.DS_Store

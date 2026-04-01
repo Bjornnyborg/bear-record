@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, globalShortcut } from 'electron'
+import { app, BrowserWindow, ipcMain, session, globalShortcut, Menu } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 
@@ -368,6 +368,7 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null)
   createMainWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

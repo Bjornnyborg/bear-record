@@ -89,13 +89,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   })
 
   // HUD window management
-  ipcMain.handle(IPC.HUD_OPEN, (_e, webcamDeviceId?: string) => createHudWindow(webcamDeviceId))
+  ipcMain.handle(IPC.HUD_OPEN, (_e, webcamDeviceId?: string, captureArea?: { x: number; y: number; width: number; height: number }) => 
+    createHudWindow(webcamDeviceId, captureArea))
   ipcMain.handle(IPC.HUD_CLOSE, () => closeHudWindow())
 
   // Recording border overlay
   ipcMain.handle('border:show', (_e, x: number, y: number, w: number, h: number) =>
     createBorderWindow(x, y, w, h))
-  ipcMain.handle('border:showFullscreen', () => createFullscreenBorderWindow())
+  ipcMain.handle('border:showFullscreen', (_e, sourceId?: string) => createFullscreenBorderWindow(sourceId))
   ipcMain.handle('border:hide', () => {
     stopWindowTracking()
     closeBorderWindow()
@@ -117,6 +118,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   
   // Focus window
   ipcMain.handle('window:focus', (_e, sourceId: string) => focusWindow(sourceId))
+  
+  // Get display bounds for a screen sourceId
+  ipcMain.handle('display:getBounds', (_e, sourceId: string) => {
+    const { screen } = require('electron')
+    const match = sourceId.match(/^screen:(\d+):/)
+    if (!match) return null
+    const displayIndex = parseInt(match[1], 10)
+    const allDisplays = screen.getAllDisplays()
+    const display = allDisplays.find((d: any) => d.id === displayIndex) 
+      || allDisplays[displayIndex]
+      || screen.getPrimaryDisplay()
+    return display?.bounds || null
+  })
 
   // HUD → main relay
   ipcMain.on(IPC.HUD_STOP, () => {

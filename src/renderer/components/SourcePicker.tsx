@@ -31,8 +31,8 @@ export default function SourcePicker({ selected, onSelect }: Props) {
       // Don't show placeholder - wait for real bounds from tracking
       window.electronAPI.invoke('border:trackWindow', selected.sourceId)
     } else {
-      // Fullscreen - show border around entire screen
-      window.electronAPI.invoke('border:showFullscreen')
+      // Fullscreen - show border around the selected screen
+      window.electronAPI.invoke('border:showFullscreen', selected.sourceId)
     }
 
     return () => {

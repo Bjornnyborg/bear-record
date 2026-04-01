@@ -190,18 +190,30 @@ export function useRecording() {
       // They use setContentProtection(true) so they're visible to user but excluded from capture.
       setTimeout(async () => {
         const webcamDeviceId = settings.webcam.enabled ? (settings.webcam.deviceId ?? '') : ''
-        await window.electronAPI.invoke('hud:open', webcamDeviceId)
+        
+        // Determine capture area for HUD positioning
+        let captureArea: { x: number; y: number; width: number; height: number } | undefined
+        if (captureTarget.kind === 'region') {
+          captureArea = captureTarget.region
+        } else if (captureTarget.kind === 'fullscreen') {
+          // Get the display bounds for the selected screen
+          const bounds = await window.electronAPI.invoke('display:getBounds', captureTarget.sourceId)
+          if (bounds) captureArea = bounds
+        }
+        // For window captures, we could track window position but it moves - leave undefined
+        
+        await window.electronAPI.invoke('hud:open', webcamDeviceId, captureArea)
+        
         if (captureTarget.kind === 'region') {
           const r = captureTarget.region
           await window.electronAPI.invoke('border:show', r.x, r.y, r.width, r.height)
         } else if (captureTarget.kind === 'window') {
           // For window capture, track the window and update border position
-          // First show a placeholder border, then start tracking to update it
           await window.electronAPI.invoke('border:show', 0, 0, 100, 100)
           await window.electronAPI.invoke('border:trackWindow', captureTarget.sourceId)
         } else {
-          // Fullscreen
-          await window.electronAPI.invoke('border:showFullscreen')
+          // Fullscreen - pass sourceId to show border on correct screen
+          await window.electronAPI.invoke('border:showFullscreen', captureTarget.sourceId)
         }
       }, 500)
 

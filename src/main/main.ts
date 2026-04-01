@@ -85,9 +85,24 @@ export function createBorderWindow(x: number, y: number, width: number, height: 
   borderWindow.setContentProtection(true)
 }
 
-export function createFullscreenBorderWindow() {
+export function createFullscreenBorderWindow(sourceId?: string) {
   const { screen } = require('electron')
-  const display = screen.getPrimaryDisplay()
+  
+  // Find the display matching the source ID (format: "screen:displayIndex:0")
+  let display = screen.getPrimaryDisplay()
+  if (sourceId) {
+    const match = sourceId.match(/^screen:(\d+):/)
+    if (match) {
+      const displayIndex = parseInt(match[1], 10)
+      const allDisplays = screen.getAllDisplays()
+      // displayIndex from Electron is the display.id or order
+      const found = allDisplays.find((d: any) => d.id === displayIndex) 
+        || allDisplays[displayIndex]
+        || display
+      display = found
+    }
+  }
+  
   // Use bounds (not workArea) so border covers full screen including taskbar
   const { x, y, width, height } = display.bounds
   if (borderWindow && !borderWindow.isDestroyed()) borderWindow.close()
@@ -150,14 +165,14 @@ export function updateBorderWindow(x: number, y: number, width: number, height: 
   }
 }
 
-export function createHudWindow(webcamDeviceId?: string) {
+export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: number; y: number; width: number; height: number }) {
   if (hudWindow && !hudWindow.isDestroyed()) {
     hudWindow.show()
     return
   }
   const hasWebcam = !!webcamDeviceId
-  const hudWidth = hasWebcam ? 320 : 220
-  const hudHeight = hasWebcam ? 160 : 64
+  const hudWidth = 220
+  const hudHeight = hasWebcam ? 230 : 64
   hudWindow = new BrowserWindow({
     width: hudWidth,
     height: hudHeight,
@@ -183,11 +198,36 @@ export function createHudWindow(webcamDeviceId?: string) {
   } else {
     hudWindow.loadFile(join(__dirname, '../../dist-renderer/hud.html'), { search: params })
   }
-  const { workAreaSize } = require('electron').screen.getPrimaryDisplay()
-  hudWindow.setPosition(
-    Math.round((workAreaSize.width - hudWidth) / 2),
-    20
-  )
+  
+  // Position HUD based on webcam presence
+  // With webcam: bottom-left of capture area (matching final video position)
+  // Without webcam: top-center of capture area
+  if (captureArea) {
+    if (hasWebcam) {
+      // Position at bottom-left with margin matching the MP4 overlay (12% of min dimension)
+      const margin = Math.round(Math.min(captureArea.width, captureArea.height) * 0.03)
+      hudWindow.setPosition(
+        captureArea.x + margin,
+        captureArea.y + captureArea.height - hudHeight - margin
+      )
+    } else {
+      hudWindow.setPosition(
+        Math.round(captureArea.x + (captureArea.width - hudWidth) / 2),
+        captureArea.y + 20
+      )
+    }
+  } else {
+    const { workAreaSize } = require('electron').screen.getPrimaryDisplay()
+    if (hasWebcam) {
+      const margin = Math.round(Math.min(workAreaSize.width, workAreaSize.height) * 0.03)
+      hudWindow.setPosition(margin, workAreaSize.height - hudHeight - margin)
+    } else {
+      hudWindow.setPosition(
+        Math.round((workAreaSize.width - hudWidth) / 2),
+        20
+      )
+    }
+  }
   hudWindow.on('closed', () => { hudWindow = null })
 }
 

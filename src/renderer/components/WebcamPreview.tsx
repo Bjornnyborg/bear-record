@@ -15,7 +15,7 @@ export default function WebcamPreview({ stream }: Props) {
 
   if (!stream) {
     return (
-      <div className="w-24 h-18 rounded-lg bg-bear-border flex items-center justify-center text-bear-muted text-xs">
+      <div className="w-28 h-28 rounded-full bg-bear-border flex items-center justify-center text-bear-muted text-xs">
         No cam
       </div>
     )
@@ -27,8 +27,7 @@ export default function WebcamPreview({ stream }: Props) {
       autoPlay
       muted
       playsInline
-      className="w-24 h-18 rounded-lg object-cover border border-bear-border"
-      style={{ height: '4.5rem' }}
+      className="w-28 h-28 rounded-full object-cover border-2 border-bear-border"
     />
   )
 }

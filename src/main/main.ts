@@ -61,6 +61,11 @@ export function createBorderWindow(x: number, y: number, width: number, height: 
     focusable: false,
     hasShadow: false,
     roundedCorners: false,
+    // macOS-specific options
+    ...(process.platform === 'darwin' ? {
+      type: 'panel',
+      hiddenInMissionControl: true,
+    } : {}),
     webPreferences: { contextIsolation: true }
   })
   borderWindow.loadURL(
@@ -82,7 +87,11 @@ export function createBorderWindow(x: number, y: number, width: number, height: 
   borderWindow.setIgnoreMouseEvents(true)
   borderWindow.setAlwaysOnTop(true, 'screen-saver')
   // Exclude from screen capture so it's visible to user but not in recording
+  // Note: This works reliably on Windows but may not work on macOS
   borderWindow.setContentProtection(true)
+  if (process.platform === 'darwin') {
+    borderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
 }
 
 export function createFullscreenBorderWindow(sourceId?: string) {
@@ -124,6 +133,11 @@ export function createFullscreenBorderWindow(sourceId?: string) {
     roundedCorners: false,
     // fullscreen required on Windows to go above taskbar
     fullscreen: false,
+    // macOS-specific options
+    ...(process.platform === 'darwin' ? {
+      type: 'panel',
+      hiddenInMissionControl: true,
+    } : {}),
     webPreferences: { contextIsolation: true }
   })
   borderWindow.loadURL(
@@ -146,7 +160,11 @@ export function createFullscreenBorderWindow(sourceId?: string) {
   // On Windows, push above taskbar
   borderWindow.setAlwaysOnTop(true, 'screen-saver')
   // Exclude from screen capture so it's visible to user but not in recording
+  // Note: This works reliably on Windows but may not work on macOS
   borderWindow.setContentProtection(true)
+  if (process.platform === 'darwin') {
+    borderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
 }
 
 export function closeBorderWindow() {
@@ -189,6 +207,11 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
+    // macOS-specific options that may help exclude from screen capture
+    ...(process.platform === 'darwin' ? {
+      type: 'panel', // Panel windows can be excluded from some capture scenarios on macOS
+      hiddenInMissionControl: true,
+    } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
@@ -197,7 +220,12 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
   })
   hudWindow.setAlwaysOnTop(true, 'screen-saver')
   // Exclude from screen capture so it's visible to user but not in recording
+  // Note: This works reliably on Windows but may not work on macOS
   hudWindow.setContentProtection(true)
+  // On macOS, also try these additional settings
+  if (process.platform === 'darwin') {
+    hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
   const params = webcamDeviceId 
     ? `?webcam=${encodeURIComponent(webcamDeviceId)}&size=${webcamSize}` 
     : ''

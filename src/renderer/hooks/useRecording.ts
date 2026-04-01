@@ -70,6 +70,7 @@ export function useRecording() {
 
       const nativeW = Math.round(window.screen.width * window.devicePixelRatio)
       const nativeH = Math.round(window.screen.height * window.devicePixelRatio)
+      const isMac = window.electronAPI.platform === 'darwin'
 
       // For window captures, don't force dimensions - let Electron use the window's actual size
       const videoConstraints: any = {
@@ -79,8 +80,9 @@ export function useRecording() {
         }
       }
       
-      // Only force dimensions for fullscreen/region captures (screen source)
-      if (captureTarget.kind !== 'window') {
+      // Only force dimensions for fullscreen/region captures on Windows
+      // On macOS, forcing dimensions causes proportional issues due to Retina scaling
+      if (captureTarget.kind !== 'window' && !isMac) {
         videoConstraints.mandatory.minWidth = nativeW
         videoConstraints.mandatory.maxWidth = nativeW
         videoConstraints.mandatory.minHeight = nativeH
@@ -186,33 +188,44 @@ export function useRecording() {
 
       setState('recording')
 
-      // Show HUD and border immediately - they use setContentProtection(true) 
-      // so they're visible to user but excluded from capture
-      const webcamDeviceId = settings.webcam.enabled ? (settings.webcam.deviceId ?? '') : ''
-      
-      // Determine capture area for HUD positioning
-      let captureArea: { x: number; y: number; width: number; height: number } | undefined
-      if (captureTarget.kind === 'region') {
-        captureArea = captureTarget.region
-      } else if (captureTarget.kind === 'fullscreen') {
-        // Get the display bounds for the selected screen
-        const bounds = await window.electronAPI.invoke('display:getBounds', captureTarget.sourceId)
-        if (bounds) captureArea = bounds
+      // Show HUD and border - they use setContentProtection(true) 
+      // On macOS, setContentProtection doesn't work for screen capture, so we delay
+      // to ensure the capture stream is established before HUD appears
+      const showOverlays = async () => {
+        const webcamDeviceId = settings.webcam.enabled ? (settings.webcam.deviceId ?? '') : ''
+        
+        // Determine capture area for HUD positioning
+        let captureArea: { x: number; y: number; width: number; height: number } | undefined
+        if (captureTarget.kind === 'region') {
+          captureArea = captureTarget.region
+        } else if (captureTarget.kind === 'fullscreen') {
+          // Get the display bounds for the selected screen
+          const bounds = await window.electronAPI.invoke('display:getBounds', captureTarget.sourceId)
+          if (bounds) captureArea = bounds
+        }
+        // For window captures, we could track window position but it moves - leave undefined
+        
+        await window.electronAPI.invoke('hud:open', webcamDeviceId, captureArea)
+        
+        if (captureTarget.kind === 'region') {
+          const r = captureTarget.region
+          await window.electronAPI.invoke('border:show', r.x, r.y, r.width, r.height)
+        } else if (captureTarget.kind === 'window') {
+          // For window capture, track the window and update border position
+          await window.electronAPI.invoke('border:show', 0, 0, 100, 100)
+          await window.electronAPI.invoke('border:trackWindow', captureTarget.sourceId)
+        } else {
+          // Fullscreen - pass sourceId to show border on correct screen
+          await window.electronAPI.invoke('border:showFullscreen', captureTarget.sourceId)
+        }
       }
-      // For window captures, we could track window position but it moves - leave undefined
-      
-      await window.electronAPI.invoke('hud:open', webcamDeviceId, captureArea)
-      
-      if (captureTarget.kind === 'region') {
-        const r = captureTarget.region
-        await window.electronAPI.invoke('border:show', r.x, r.y, r.width, r.height)
-      } else if (captureTarget.kind === 'window') {
-        // For window capture, track the window and update border position
-        await window.electronAPI.invoke('border:show', 0, 0, 100, 100)
-        await window.electronAPI.invoke('border:trackWindow', captureTarget.sourceId)
+
+      // On macOS, delay showing overlays since setContentProtection doesn't exclude them from capture
+      // The delay allows the MediaRecorder to start capturing before overlays appear
+      if (isMac) {
+        setTimeout(showOverlays, 500)
       } else {
-        // Fullscreen - pass sourceId to show border on correct screen
-        await window.electronAPI.invoke('border:showFullscreen', captureTarget.sourceId)
+        showOverlays()
       }
 
     } catch (err) {

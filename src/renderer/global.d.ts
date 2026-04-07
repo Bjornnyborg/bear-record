@@ -52,6 +52,7 @@ declare global {
       platform: string
       invoke: (channel: string, ...args: any[]) => Promise<any>
       copyToClipboard: (text: string) => void
+      openPermissionSettings: (type: 'screen' | 'camera') => Promise<void>
     }
   }
 }

@@ -94,6 +94,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Shell
   ipcMain.handle(IPC.SHELL_OPEN_FILE, (_e, path: string) => shell.openPath(path))
   ipcMain.handle(IPC.SHELL_OPEN_FOLDER, (_e, path: string) => shell.openPath(path))
+  ipcMain.handle('shell:openPermissionSettings', (_e, type: 'screen' | 'camera') => {
+    if (process.platform === 'win32') {
+      const url = type === 'camera'
+        ? 'ms-settings:privacy-webcam'
+        : 'ms-settings:privacy-broadfilesystemaccess'
+      shell.openExternal(url)
+    } else if (process.platform === 'darwin') {
+      shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy')
+    }
+  })
 
   // Clipboard
   ipcMain.handle('clipboard:write', (_e, text: string) => clipboard.writeText(text))

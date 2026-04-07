@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import type { CaptureTarget } from '../../shared/types'
 import { useMediaSources } from '../hooks/useMediaSources'
-import { Monitor, AppWindow, Crosshair, RefreshCw } from 'lucide-react'
+import { Monitor, AppWindow, Crosshair, RefreshCw, ShieldAlert } from 'lucide-react'
 
 interface Props {
   selected: CaptureTarget | null
@@ -122,9 +122,20 @@ export default function SourcePicker({ selected, onSelect }: Props) {
               </button>
             )
           })}
-          {list.length === 0 && (
+          {list.length === 0 && tab === 'screen' && !loading && (
+            <div className="col-span-3 flex flex-col items-center gap-2 py-6">
+              <p className="text-bear-muted text-sm">No screens found</p>
+              <button
+                onClick={() => window.electronAPI.openPermissionSettings('screen')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 transition-colors"
+              >
+                <ShieldAlert size={13} /> Check permissions
+              </button>
+            </div>
+          )}
+          {list.length === 0 && tab === 'window' && !loading && (
             <div className="col-span-3 text-center py-6 text-bear-muted text-sm">
-              No {tab}s found
+              No windows found
             </div>
           )}
         </div>

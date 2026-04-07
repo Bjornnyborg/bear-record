@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Mic, MicOff, Volume2, VolumeX, Camera, Folder, Video, Upload, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { Mic, MicOff, Volume2, VolumeX, Camera, Folder, Video, Upload, CheckCircle, XCircle, Loader, ShieldAlert } from 'lucide-react'
 import SourcePicker from '../components/SourcePicker'
 import WebcamPreview from '../components/WebcamPreview'
 import AudioMeter from '../components/AudioMeter'
@@ -50,13 +50,21 @@ export default function SettingsPage({ onRecord }: Props) {
           </div>
           <div className={`flex items-center gap-4 transition-opacity ${store.webcam.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
             <WebcamPreview stream={webcamStream} />
-            <div className="flex-1">
+            <div className="flex-1 flex flex-col gap-2">
               <Select
                 value={store.webcam.deviceId ?? ''}
                 onChange={(v) => store.setWebcam({ deviceId: v || null })}
                 options={webcamDevices.map((d) => ({ value: d.deviceId, label: d.label }))}
                 placeholder="Default camera"
               />
+              {store.webcam.enabled && webcamDevices.length === 0 && (
+                <button
+                  onClick={() => window.electronAPI.openPermissionSettings('camera')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 transition-colors self-start"
+                >
+                  <ShieldAlert size={13} /> Check permissions
+                </button>
+              )}
             </div>
           </div>
         </section>

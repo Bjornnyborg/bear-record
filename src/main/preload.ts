@@ -76,6 +76,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform
   platform: process.platform,
 
+  // Permissions
+  openPermissionSettings: (type: 'screen' | 'camera') => ipcRenderer.invoke('shell:openPermissionSettings', type),
+
   // Clipboard
   copyToClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', text)
 })

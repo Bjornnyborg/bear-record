@@ -31,17 +31,16 @@ export function excludeWindowFromCapture(win: BrowserWindow) {
       koffi.load('/System/Library/Frameworks/AppKit.framework/AppKit')
       const objc = koffi.load('libobjc.dylib')
       const sel_registerName = objc.func('void* sel_registerName(const char* str)')
-      const objc_msgSend = objc.func('void* objc_msgSend(void* self, void* op)')
+      // Load objc_msgSend twice with different signatures — koffi allows this via alias
+      const objc_msgSend_ptr = objc.func('void* objc_msgSend(void* self, void* op)')
+      const objc_msgSend_int = objc.func('void objc_msgSend(void* self, void* op, int value)')
 
       // [view window] -> NSWindow*
-      const nsWindowPtr = objc_msgSend(viewPtr, sel_registerName('window'))
+      const nsWindowPtr = objc_msgSend_ptr(viewPtr, sel_registerName('window'))
       console.log('[captureExclusion] nsWindowPtr:', nsWindowPtr)
 
-      // Call objc_msgSend with a different signature for setSharingType: (takes an int arg)
-      // koffi.call lets us reuse the function address with a different proto
-      const msgSendAddr = koffi.address(objc_msgSend)
-      const setSharingTypeProto = koffi.proto('void MsgSendVoidInt(void* self, void* op, int value)')
-      koffi.call(setSharingTypeProto, msgSendAddr, nsWindowPtr, sel_registerName('setSharingType:'), 0)
+      // [nsWindow setSharingType: NSWindowSharingNone (0)]
+      objc_msgSend_int(nsWindowPtr, sel_registerName('setSharingType:'), 0)
       console.log('[captureExclusion] macOS setSharingType:0 done')
     }
   } catch (err) {

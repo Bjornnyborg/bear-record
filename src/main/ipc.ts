@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog, shell, app, clipboard } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell, app, clipboard, systemPreferences, desktopCapturer } from 'electron'
 import Store from 'electron-store'
 import { IPC, DEFAULT_SETTINGS } from '../shared/types'
 import type { AppSettings, TranscodeRequest, FtpSettings } from '../shared/types'
@@ -94,17 +94,29 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Shell
   ipcMain.handle(IPC.SHELL_OPEN_FILE, (_e, path: string) => shell.openPath(path))
   ipcMain.handle(IPC.SHELL_OPEN_FOLDER, (_e, path: string) => shell.openPath(path))
-  ipcMain.handle('shell:openPermissionSettings', (_e, type: 'screen' | 'camera') => {
+  ipcMain.handle('shell:openPermissionSettings', async (_e, type: 'screen' | 'camera') => {
     if (process.platform === 'win32') {
       const url = type === 'camera'
         ? 'ms-settings:privacy-webcam'
         : 'ms-settings:privacy-broadfilesystemaccess'
       shell.openExternal(url)
     } else if (process.platform === 'darwin') {
-      const url = type === 'camera'
-        ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'
-        : 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-      shell.openExternal(url)
+      if (type === 'camera') {
+        // askForMediaAccess triggers the native OS prompt for camera
+        const granted = await systemPreferences.askForMediaAccess('camera')
+        if (!granted) {
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
+        }
+      } else {
+        // For screen: if not-determined, getSources() triggers the native prompt
+        // If already denied, open the exact Screen Recording pane
+        const status = systemPreferences.getMediaAccessStatus('screen')
+        if (status === 'not-determined') {
+          await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } })
+        } else {
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+        }
+      }
     }
   })
 

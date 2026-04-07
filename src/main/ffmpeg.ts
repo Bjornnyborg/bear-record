@@ -53,7 +53,7 @@ export async function transcode(
 
   return new Promise((resolve, reject) => {
     const cmd = Ffmpeg(inputPath)
-      .inputOptions(['-r 30'])
+      .inputOptions(['-fflags', '+genpts'])
 
     if (webcamPath && existsSync(webcamPath)) {
       cmd.input(webcamPath)
@@ -154,10 +154,11 @@ export async function transcode(
           .on('error', () => resolve({ outputPath, durationMs, fileSizeBytes, thumbnailDataUrl: '' }))
       })
       .on('stderr', (line) => console.log('[ffmpeg]', line))
-      .on('error', (err, stdout, stderr) => {
+      .on('error', (err, _stdout, stderr) => {
         console.error('[ffmpeg] Transcode error:', err)
         console.error('[ffmpeg] stderr:', stderr)
-        reject(new Error(`FFmpeg failed: ${err.message}. Check console for details.`))
+        const detail = stderr ? stderr.split('\n').filter(Boolean).slice(-5).join(' | ') : err.message
+        reject(new Error(`FFmpeg failed: ${detail}`))
       })
       .run()
   })

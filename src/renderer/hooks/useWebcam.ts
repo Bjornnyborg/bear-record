@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export interface CameraDevice { deviceId: string; label: string }
 
@@ -6,15 +6,26 @@ export function useWebcam(enabled: boolean, deviceId: string | null) {
   const [devices, setDevices] = useState<CameraDevice[]>([])
   const [stream, setStream] = useState<MediaStream | null>(null)
 
-  useEffect(() => {
-    navigator.mediaDevices.enumerateDevices().then((all) => {
-      setDevices(
-        all
-          .filter((d) => d.kind === 'videoinput')
-          .map((d) => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 6)}` }))
-      )
-    })
+  const enumerateDevices = useCallback(async () => {
+    const all = await navigator.mediaDevices.enumerateDevices()
+    setDevices(
+      all
+        .filter((d) => d.kind === 'videoinput')
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 6)}` }))
+    )
   }, [])
+
+  useEffect(() => { enumerateDevices() }, [enumerateDevices])
+
+  const requestPermission = useCallback(async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      s.getTracks().forEach((t) => t.stop())
+      await enumerateDevices()
+    } catch {
+      // Permission denied — nothing to do
+    }
+  }, [enumerateDevices])
 
   useEffect(() => {
     if (!enabled) {
@@ -39,5 +50,5 @@ export function useWebcam(enabled: boolean, deviceId: string | null) {
     }
   }, [enabled, deviceId])
 
-  return { devices, stream }
+  return { devices, stream, requestPermission }
 }

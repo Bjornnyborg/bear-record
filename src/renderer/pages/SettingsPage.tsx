@@ -15,7 +15,7 @@ const QUALITY_LABELS = { good: 'Good', high: 'High', maximum: 'Maximum' } as con
 
 export default function SettingsPage({ onRecord }: Props) {
   const store = useSettingsStore()
-  const { devices: webcamDevices, stream: webcamStream } = useWebcam(store.webcam.enabled, store.webcam.deviceId)
+  const { devices: webcamDevices, stream: webcamStream, requestPermission: requestCameraPermission } = useWebcam(store.webcam.enabled, store.webcam.deviceId)
   const { devices: micDevices, level } = useAudioMixer(store.audio.micEnabled, store.audio.micDeviceId)
 
   useEffect(() => { store.loadFromMain() }, [])
@@ -59,7 +59,7 @@ export default function SettingsPage({ onRecord }: Props) {
               />
               {store.webcam.enabled && webcamDevices.length === 0 && (
                 <button
-                  onClick={() => window.electronAPI.openPermissionSettings('camera')}
+                  onClick={requestCameraPermission}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-amber-500/50 text-amber-400 hover:bg-amber-500/10 transition-colors self-start"
                 >
                   <ShieldAlert size={13} /> Check permissions

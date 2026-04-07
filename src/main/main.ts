@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session, globalShortcut, Menu } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
+import { excludeWindowFromCapture } from './captureExclusion'
 
 let recordingShortcutsRegistered = false
 let isPaused = false
@@ -86,12 +87,10 @@ export function createBorderWindow(x: number, y: number, width: number, height: 
   )
   borderWindow.setIgnoreMouseEvents(true)
   borderWindow.setAlwaysOnTop(true, 'screen-saver')
-  // Exclude from screen capture so it's visible to user but not in recording
-  // Note: This works reliably on Windows but may not work on macOS
-  borderWindow.setContentProtection(true)
   if (process.platform === 'darwin') {
     borderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   }
+  excludeWindowFromCapture(borderWindow)
 }
 
 export function createFullscreenBorderWindow(sourceId?: string) {
@@ -157,14 +156,11 @@ export function createFullscreenBorderWindow(sourceId?: string) {
     )
   )
   borderWindow.setIgnoreMouseEvents(true)
-  // On Windows, push above taskbar
   borderWindow.setAlwaysOnTop(true, 'screen-saver')
-  // Exclude from screen capture so it's visible to user but not in recording
-  // Note: This works reliably on Windows but may not work on macOS
-  borderWindow.setContentProtection(true)
   if (process.platform === 'darwin') {
     borderWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   }
+  excludeWindowFromCapture(borderWindow)
 }
 
 export function closeBorderWindow() {
@@ -219,13 +215,10 @@ export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: numb
     }
   })
   hudWindow.setAlwaysOnTop(true, 'screen-saver')
-  // Exclude from screen capture so it's visible to user but not in recording
-  // Note: This works reliably on Windows but may not work on macOS
-  hudWindow.setContentProtection(true)
-  // On macOS, also try these additional settings
   if (process.platform === 'darwin') {
     hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   }
+  excludeWindowFromCapture(hudWindow)
   const params = webcamDeviceId 
     ? `?webcam=${encodeURIComponent(webcamDeviceId)}&size=${webcamSize}` 
     : ''
@@ -368,7 +361,12 @@ function createMainWindow() {
 }
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null)
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    // Dev mode: keep the default menu so DevTools (Cmd+Option+I / F12) works
+    Menu.setApplicationMenu(Menu.getApplicationMenu())
+  } else {
+    Menu.setApplicationMenu(null)
+  }
   createMainWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

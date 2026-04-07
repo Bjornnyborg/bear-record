@@ -144,8 +144,11 @@ export function useRecording() {
       ])
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
         ? 'video/webm;codecs=vp8,opus' : 'video/webm'
+      const videoBitsPerSecond = settings.quality === 'maximum' ? 16_000_000
+        : settings.quality === 'high' ? 8_000_000
+        : 4_000_000
 
-      const screenMr = new MediaRecorder(screenRecord, { mimeType })
+      const screenMr = new MediaRecorder(screenRecord, { mimeType, videoBitsPerSecond })
       screenMrRef.current = screenMr
 
       const screenPending: Promise<void>[] = []
@@ -193,7 +196,7 @@ export function useRecording() {
       // to ensure the capture stream is established before HUD appears
       const showOverlays = async () => {
         const webcamDeviceId = settings.webcam.enabled ? (settings.webcam.deviceId ?? '') : ''
-        
+
         // Determine capture area for HUD positioning
         let captureArea: { x: number; y: number; width: number; height: number } | undefined
         if (captureTarget.kind === 'region') {
@@ -204,18 +207,16 @@ export function useRecording() {
           if (bounds) captureArea = bounds
         }
         // For window captures, we could track window position but it moves - leave undefined
-        
+
         await window.electronAPI.invoke('hud:open', webcamDeviceId, captureArea)
-        
+
         if (captureTarget.kind === 'region') {
           const r = captureTarget.region
           await window.electronAPI.invoke('border:show', r.x, r.y, r.width, r.height)
         } else if (captureTarget.kind === 'window') {
-          // For window capture, track the window and update border position
           await window.electronAPI.invoke('border:show', 0, 0, 100, 100)
           await window.electronAPI.invoke('border:trackWindow', captureTarget.sourceId)
         } else {
-          // Fullscreen - pass sourceId to show border on correct screen
           await window.electronAPI.invoke('border:showFullscreen', captureTarget.sourceId)
         }
       }

@@ -36,6 +36,7 @@ export function unregisterRecordingShortcuts() {
 
 let mainWindow: BrowserWindow | null = null
 let hudWindow: BrowserWindow | null = null
+let webcamWindow: BrowserWindow | null = null
 let regionWindow: BrowserWindow | null = null
 let borderWindow: BrowserWindow | null = null
 
@@ -62,11 +63,6 @@ export function createBorderWindow(x: number, y: number, width: number, height: 
     focusable: false,
     hasShadow: false,
     roundedCorners: false,
-    // macOS-specific options
-    ...(process.platform === 'darwin' ? {
-      type: 'panel',
-      hiddenInMissionControl: true,
-    } : {}),
     webPreferences: { contextIsolation: true }
   })
   borderWindow.loadURL(
@@ -132,11 +128,6 @@ export function createFullscreenBorderWindow(sourceId?: string) {
     roundedCorners: false,
     // fullscreen required on Windows to go above taskbar
     fullscreen: false,
-    // macOS-specific options
-    ...(process.platform === 'darwin' ? {
-      type: 'panel',
-      hiddenInMissionControl: true,
-    } : {}),
     webPreferences: { contextIsolation: true }
   })
   borderWindow.loadURL(
@@ -179,92 +170,84 @@ export function updateBorderWindow(x: number, y: number, width: number, height: 
   }
 }
 
-export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: number; y: number; width: number; height: number }) {
-  if (hudWindow && !hudWindow.isDestroyed()) {
-    hudWindow.show()
-    return
-  }
-  const hasWebcam = !!webcamDeviceId
-  
-  // Calculate webcam size for HUD (25% of min dimension - half of MP4 size for less intrusion)
-  let webcamSize = 140 // default
-  if (captureArea) {
-    webcamSize = Math.round(Math.min(captureArea.width, captureArea.height) * 0.25)
-  }
-  
-  const hudWidth = hasWebcam ? webcamSize + 20 : 220
-  const hudHeight = hasWebcam ? webcamSize + 70 : 64 // extra space for controls at top
-  hudWindow = new BrowserWindow({
-    width: hudWidth,
-    height: hudHeight,
+function makePanelWindow(opts: Electron.BrowserWindowConstructorOptions): BrowserWindow {
+  const win = new BrowserWindow({
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
-    // macOS-specific options that may help exclude from screen capture
-    ...(process.platform === 'darwin' ? {
-      type: 'panel', // Panel windows can be excluded from some capture scenarios on macOS
-      hiddenInMissionControl: true,
-    } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
+    ...opts,
   })
-  hudWindow.setAlwaysOnTop(true, 'screen-saver')
-  if (process.platform === 'darwin') {
-    hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setAlwaysOnTop(true, 'screen-saver')
+  if (process.platform === 'darwin') win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  excludeWindowFromCapture(win)
+  return win
+}
+
+export function createHudWindow(webcamDeviceId?: string, captureArea?: { x: number; y: number; width: number; height: number }) {
+  if (hudWindow && !hudWindow.isDestroyed()) {
+    hudWindow.show()
+    return
   }
-  excludeWindowFromCapture(hudWindow)
-  const params = webcamDeviceId 
-    ? `?webcam=${encodeURIComponent(webcamDeviceId)}&size=${webcamSize}` 
-    : ''
-  const url = process.env['ELECTRON_RENDERER_URL']
-  if (url) {
-    hudWindow.loadURL(url + '/hud.html' + params)
+
+  const { screen } = require('electron')
+  const area = captureArea ?? (() => {
+    const { bounds } = screen.getPrimaryDisplay()
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  })()
+
+  // Controls pill — always center-top of capture area
+  const HUD_W = 220, HUD_H = 48
+  hudWindow = makePanelWindow({
+    width: HUD_W,
+    height: HUD_H,
+    webPreferences: { preload: join(__dirname, '../preload/preload.js'), contextIsolation: true, nodeIntegration: false }
+  })
+  hudWindow.setPosition(
+    Math.round(area.x + (area.width - HUD_W) / 2),
+    area.y + 20
+  )
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) {
+    hudWindow.loadURL(devUrl + '/hud.html')
   } else {
-    hudWindow.loadFile(join(__dirname, '../../dist-renderer/hud.html'), { search: params })
-  }
-  
-  // Position HUD based on webcam presence
-  // With webcam: bottom-left of capture area (matching final video position)
-  // Without webcam: top-center of capture area
-  if (captureArea) {
-    if (hasWebcam) {
-      // Position so webcam circle is at bottom-left with 3% margin (matching ffmpeg)
-      const margin = Math.round(Math.min(captureArea.width, captureArea.height) * 0.03)
-      hudWindow.setPosition(
-        captureArea.x + margin - 10, // -10 for HUD padding
-        captureArea.y + captureArea.height - webcamSize - margin - 60 // -60 for controls bar
-      )
-    } else {
-      hudWindow.setPosition(
-        Math.round(captureArea.x + (captureArea.width - hudWidth) / 2),
-        captureArea.y + 20
-      )
-    }
-  } else {
-    const { workAreaSize } = require('electron').screen.getPrimaryDisplay()
-    if (hasWebcam) {
-      const margin = Math.round(Math.min(workAreaSize.width, workAreaSize.height) * 0.03)
-      hudWindow.setPosition(margin - 10, workAreaSize.height - webcamSize - margin - 60)
-    } else {
-      hudWindow.setPosition(
-        Math.round((workAreaSize.width - hudWidth) / 2),
-        20
-      )
-    }
+    hudWindow.loadFile(join(__dirname, '../../dist-renderer/hud.html'))
   }
   hudWindow.on('closed', () => { hudWindow = null })
+
+  // Webcam — separate window at bottom-left of capture area
+  if (webcamDeviceId) {
+    const webcamSize = Math.round(Math.min(area.width, area.height) * 0.25)
+    const margin = Math.round(Math.min(area.width, area.height) * 0.03)
+    webcamWindow = makePanelWindow({
+      width: webcamSize,
+      height: webcamSize,
+      webPreferences: { preload: join(__dirname, '../preload/preload.js'), contextIsolation: true, nodeIntegration: false }
+    })
+    webcamWindow.setPosition(
+      area.x + margin,
+      area.y + area.height - webcamSize - margin
+    )
+    const wcParams = `?webcam=${encodeURIComponent(webcamDeviceId)}&size=${webcamSize}`
+    if (devUrl) {
+      webcamWindow.loadURL(devUrl + '/hud.html' + wcParams)
+    } else {
+      webcamWindow.loadFile(join(__dirname, '../../dist-renderer/hud.html'), { search: wcParams })
+    }
+    webcamWindow.on('closed', () => { webcamWindow = null })
+  }
 }
 
 export function closeHudWindow() {
   if (hudWindow && !hudWindow.isDestroyed()) {
     hudWindow.close()
     hudWindow = null
+  }
+  if (webcamWindow && !webcamWindow.isDestroyed()) {
+    webcamWindow.close()
+    webcamWindow = null
   }
 }
 

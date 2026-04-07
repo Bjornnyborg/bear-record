@@ -25,32 +25,24 @@ export function excludeWindowFromCapture(win: BrowserWindow) {
       console.log('[captureExclusion] Windows SetWindowDisplayAffinity result:', result)
 
     } else if (process.platform === 'darwin') {
-      // getNativeWindowHandle() returns a Buffer containing the NSView* pointer value
       const viewBuf = win.getNativeWindowHandle()
-      // Read the pointer value as a BigInt (8 bytes on 64-bit)
       const viewPtr = viewBuf.readBigUInt64LE(0)
 
       const objc = koffi.load('libobjc.dylib')
-      // Use typed (non-variadic) signatures to avoid koffi variadic issues on arm64
       const sel_registerName = objc.func('void* sel_registerName(const char* str)')
-      // objc_msgSend for (id, SEL, NSUInteger) -> void
-      const objc_msgSend_window = objc.func('__cdecl void* objc_msgSend(void* self, void* op)')
-      const objc_msgSend_setSharingType = objc.func('__cdecl void objc_msgSend_setSharingType(void* self, void* op, int sharingType)')
+      // No calling convention prefix on macOS — just plain signatures
+      const objc_msgSend = objc.func('void* objc_msgSend(void* self, void* op)')
+      const objc_msgSend_int = objc.func('void objc_msgSend$setSharingType(void* self, void* op, int value)')
 
-      // Re-register under a different name to get the typed signature
-      // koffi allows loading the same symbol with different signatures
-      const appKit = koffi.load('AppKit.framework/AppKit')
-      void appKit // ensure framework is loaded so NSWindow class is available
+      koffi.load('/System/Library/Frameworks/AppKit.framework/AppKit')
 
-      // Get NSWindow from NSView: [view window]
-      const windowSel = sel_registerName('window')
-      const nsWindowPtr = objc_msgSend_window(viewPtr, windowSel)
+      // [view window] -> NSWindow*
+      const nsWindowPtr = objc_msgSend(viewPtr, sel_registerName('window'))
       console.log('[captureExclusion] nsWindowPtr:', nsWindowPtr)
 
       // [nsWindow setSharingType: NSWindowSharingNone (0)]
-      const setSharingTypeSel = sel_registerName('setSharingType:')
-      objc_msgSend_setSharingType(nsWindowPtr, setSharingTypeSel, 0)
-      console.log('[captureExclusion] macOS setSharingType:0 called on NSWindow')
+      objc_msgSend_int(nsWindowPtr, sel_registerName('setSharingType:'), 0)
+      console.log('[captureExclusion] macOS setSharingType:0 done')
     }
   } catch (err) {
     console.warn('[captureExclusion] Failed:', err)

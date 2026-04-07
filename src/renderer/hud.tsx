@@ -51,138 +51,43 @@ function Hud() {
     window.electronAPI.sendHudPause(next);
   };
 
+  // Webcam-only window
+  if (webcamDeviceId) {
+    return (
+      <div style={{ width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", border: "3px solid rgba(255,255,255,0.25)", background: "#111" }}>
+        <video ref={webcamVideoRef} muted style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      </div>
+    )
+  }
+
+  // Controls-only window
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        padding: 8,
-        gap: 8,
-      }}
-    >
-      {/* Controls bar at top */}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: 10,
           background: "rgba(15,15,15,0.92)",
           border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "32px",
+          borderRadius: 32,
           padding: "10px 16px",
           backdropFilter: "blur(12px)",
           WebkitAppRegion: "drag" as any,
-          alignSelf: "center",
         }}
       >
-        {/* Red dot indicator */}
-        <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: paused ? "#888" : "#ff3b30",
-            boxShadow: paused ? "none" : "0 0 6px #ff3b30",
-            animation: paused ? "none" : "pulse 1.5s ease-in-out infinite",
-            flexShrink: 0,
-          }}
-        />
-
-        {/* Timer */}
-        <span
-          style={{
-            color: "#f0f0f0",
-            fontSize: 14,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-            minWidth: 42,
-          }}
-        >
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: paused ? "#888" : "#ff3b30", boxShadow: paused ? "none" : "0 0 6px #ff3b30", animation: paused ? "none" : "pulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
+        <span style={{ color: "#f0f0f0", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums", minWidth: 42 }}>
           {formatTime(elapsed)}
         </span>
-
-        {/* Pause */}
-        <button
-          onClick={togglePause}
-          style={{
-            WebkitAppRegion: "no-drag" as any,
-            background: "rgba(255,255,255,0.1)",
-            border: "none",
-            borderRadius: "50%",
-            width: 28,
-            height: 28,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#f0f0f0",
-            fontSize: 12,
-            flexShrink: 0,
-          }}
-          title={paused ? "Resume" : "Pause"}
-        >
+        <button onClick={togglePause} style={{ WebkitAppRegion: "no-drag" as any, background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#f0f0f0", fontSize: 12, flexShrink: 0 }} title={paused ? "Resume" : "Pause"}>
           {paused ? "▶" : "⏸"}
         </button>
-
-        {/* Stop */}
-        <button
-          onClick={stop}
-          style={{
-            WebkitAppRegion: "no-drag" as any,
-            background: "#ff3b30",
-            border: "none",
-            borderRadius: "50%",
-            width: 28,
-            height: 28,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-          title="Stop recording"
-        >
+        <button onClick={stop} style={{ WebkitAppRegion: "no-drag" as any, background: "#ff3b30", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }} title="Stop recording">
           ■
         </button>
       </div>
-
-      {/* Webcam at bottom-left */}
-      {webcamDeviceId && (
-        <div
-          style={{
-            width: webcamSize,
-            height: webcamSize,
-            borderRadius: "50%",
-            overflow: "hidden",
-            border: "3px solid rgba(255,255,255,0.25)",
-            background: "#111",
-            flexShrink: 0,
-            alignSelf: "flex-start",
-          }}
-        >
-          <video
-            ref={webcamVideoRef}
-            muted
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-        </div>
-      )}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
     </div>
   );
 }

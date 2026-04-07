@@ -101,7 +101,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
         : 'ms-settings:privacy-broadfilesystemaccess'
       shell.openExternal(url)
     } else if (process.platform === 'darwin') {
-      shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy')
+      const url = type === 'camera'
+        ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'
+        : 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+      shell.openExternal(url)
     }
   })
 
